@@ -218,7 +218,7 @@ class StitchDataset(Dataset):
             image_address = os.path.join(os.path.join(self.rootDir, image_name), image_name)
             imageA = io.imread(image_address + "_A.jpg")
             imageB = io.imread(image_address + "_B.jpg")
-            offset = np.expand_dims(self.groundTruth.iloc[idx, 2:].astype('float'), axis=0)
+            offset = np.expand_dims(self.groundTruth.iloc[idx, 2:].astype('float'), axis=0).transpose()
             imageA = imageA.transpose((2, 0, 1))
             imageB = imageB.transpose((2, 0, 1))
             sample = {'imageA': torch.from_numpy(imageA).float(), 'imageB': torch.from_numpy(imageB).float(),
@@ -232,7 +232,7 @@ class StitchDataset(Dataset):
             stitchedImage = getStitchByOffset([imageA, imageB], [drow, dcol])
             # cv2.imshow("111", stitchedImage)
             # cv2.waitKey(0)
-            offset = np.array([drow, dcol])
+            offset = np.array([[drow], [dcol]])
             imageA = imageA.transpose((2, 0, 1))
             imageB = imageB.transpose((2, 0, 1))
             sample = {'imageA': torch.from_numpy(imageA).float(), 'imageB': torch.from_numpy(imageB).float(),
@@ -250,18 +250,18 @@ if __name__ == '__main__':
             transforms.RandomRotation((270, 270), expand=True),
         ])
     ])
-    # stitchDataset = StitchDataset(isFromCSV=False, rootDir=".\\datasets\\graffiti\\images\\train\\",
-    #                               isFixedLength=True, fixedLength=224, transform=dataTransform,
-    #                               overlapRatio=[0.2, 0.8], cropRatio=[0.6, 0.9])
-    stitchDataset = StitchDataset(isFromCSV=True, rootDir=".\\datasets\\graffiti\\fromCSV\\images_fixed\\",
-                                  csvFile=".\\datasets\\graffiti\\fromCSV\\train_fixed224.csv",)
+    stitchDataset = StitchDataset(isFromCSV=False, rootDir=".\\datasets\\graffiti\\images\\train\\",
+                                  isFixedLength=True, fixedLength=224, transform=dataTransform,
+                                  overlapRatio=[0.2, 0.8], cropRatio=[0.6, 0.9])
+    # stitchDataset = StitchDataset(isFromCSV=True, rootDir=".\\datasets\\graffiti\\fromCSV\\images_fixed\\",
+    #                               csvFile=".\\datasets\\graffiti\\fromCSV\\train_fixed224.csv",)
     for i in range(len(stitchDataset)):
         sample = stitchDataset[i]
         print('Sample: imageA size: '
               + str(sample['imageA'].size())
               + ", imageB size: "
               + str(sample['imageB'].size())
-              + ", offset:" + str(sample['offset']))
+              + ", offset:" + str(sample['offset'].size()))
 
     # graffiti analysis
     # inputAddress = ".\\datasets\\graffiti\\original\\"

@@ -13,7 +13,7 @@ num_epochs = 10
 batch_size = 2
 learning_rate = 0.0001
 admp_channel = 32
-isTrainFeature = True
+isTrainFeature = False
 train_data_root = '.\\datasets\\graffiti\\images\\train\\'
 val_csv = '.\\datasets\\graffiti\\fromCSV\\val_fixed224.csv'
 val_data_root = '.\\datasets\\graffiti\\fromCSV\\images_fixed\\'
@@ -51,13 +51,13 @@ def validate(val_loader, model, criterion):
             total_num = total_num + 1
             imageA = sample['imageA'].to(device)
             imageB = sample['imageB'].to(device)
-            gt_offset = sample['offset'].to(device)
+            gt_offset = sample['offset'].to(device).squeeze(2)
             if isTrainFeature:
-                mseLoss = model(imageA, imageB)
+                mseLoss = model(imageA, imageB, isTrainFeature=isTrainFeature, offset=gt_offset)
             else:
-                prd_offset = model(imageA, imageB, isTrainFeature=isTrainFeature, offset=gt_offset)
+                prd_offset = model(imageA, imageB)
                 mseLoss += criterion(prd_offset, gt_offset)
-                if prd_offset.round() == gt_offset:
+                if prd_offset.round().equal(gt_offset):
                     correct_num = correct_num + 1
             print('Validating: The average mse loss in validation set is {:.4f}, and the accuracy is {:.4f}'.format(mseLoss / total_num, correct_num / total_num))
     return mseLoss / total_num
@@ -73,7 +73,7 @@ def main():
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
                                               batch_size=batch_size,
                                               shuffle=False)
-    deepStitchModel = DeepStitch(feature_backbone=backbone).to(device)
+    deepStitchModel = DeepStitch(feature_backbone=backbone, admp_channel=admp_channel).to(device)
     deepStitchModel = torch.nn.DataParallel(deepStitchModel).cuda()
     criterion = nn.MSELoss().to(device)
     optimizer = torch.optim.SGD(deepStitchModel.parameters(), lr=learning_rate)
@@ -87,18 +87,18 @@ def main():
             # Move tensors to the configured device
             imageA = sample['imageA'].to(device)
             imageB = sample['imageB'].to(device)
-            gt_offset = sample['offset'].to(device)
+            gt_offset = sample['offset'].to(device).squeeze(2)
             # Forward pass
             if isTrainFeature:
                 loss = deepStitchModel(imageA, imageB, isTrainFeature=isTrainFeature, offset=gt_offset)
             else:
                 prd_offset = deepStitchModel(imageA, imageB)
-                loss = criterion(gt_offset, prd_offset)
+                loss = criterion(prd_offset, gt_offset)
             # Backward and optimize
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 1 == 0:
                 print('Training: Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                       .format(epoch + 1, num_epochs, i + 1, total_step, loss.item()))
         val_loss = validate(val_loader, deepStitchModel, criterion)
