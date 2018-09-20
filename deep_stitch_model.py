@@ -7,17 +7,23 @@ class DeepStitch(nn.Module):
         self.feature_backbone = feature_backbone
         self.admp_channel = admp_channel
         self.admp = nn.AdaptiveMaxPool2d(admp_channel, return_indices=True)
-        self.filterDrow = nn.Sequential(
-            nn.Linear(int(self.admp_channel * self.admp_channel), int(self.admp_channel * self.admp_channel / 2)),
+        # self.filterDrow = nn.Sequential(
+        #     nn.Linear(int(self.admp_channel * self.admp_channel), int(self.admp_channel * self.admp_channel / 2)),
+        #     nn.ReLU(True),
+        #     nn.Dropout(),
+        #     nn.Linear(int(self.admp_channel * self.admp_channel / 2), 1),
+        # )
+        # self.filterDcol = nn.Sequential(
+        #     nn.Linear(int(self.admp_channel * self.admp_channel), int(self.admp_channel * self.admp_channel / 2)),
+        #     nn.ReLU(True),
+        #     nn.Dropout(),
+        #     nn.Linear(int(self.admp_channel * self.admp_channel / 2), 1),
+        # )
+        self.filter = nn.Sequential(
+            nn.Linear(int(self.admp_channel * self.admp_channel * 3), int(self.admp_channel * self.admp_channel / 2)),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(int(self.admp_channel * self.admp_channel / 2), 1),
-        )
-        self.filterDcol = nn.Sequential(
-            nn.Linear(int(self.admp_channel * self.admp_channel), int(self.admp_channel * self.admp_channel / 2)),
-            nn.ReLU(True),
-            nn.Dropout(),
-            nn.Linear(int(self.admp_channel * self.admp_channel / 2), 1),
+            nn.Linear(int(self.admp_channel * self.admp_channel / 2), 2)
         )
 
     def featureSelect(self, feature):
@@ -50,8 +56,9 @@ class DeepStitch(nn.Module):
             batch_B, channel_B, high_B, width_B = feature_B.size()
             indices_A = self.featureSelect(feature_A)
             indices_A = indices_A.view(batch_A, -1, 1)
-            drow_T = torch.ones(batch_A, self.admp_channel * self.admp_channel).to(indices_A.device)
-            dcol_T = torch.ones(batch_A, self.admp_channel * self.admp_channel).to(indices_A.device)
+            # drow_T = torch.ones(batch_A, self.admp_channel * self.admp_channel).to(indices_A.device)
+            # dcol_T = torch.ones(batch_A, self.admp_channel * self.admp_channel).to(indices_A.device)
+            offset = torch.ones(batch_A, self.admp_channel * self.admp_channel, 3).to(indices_A.device)
             for batch_index in range(batch_A):
                 for kp_index in range(indices_A[batch_index].numel()):
                     row_A = indices_A[batch_index, kp_index] / high_A
@@ -64,11 +71,17 @@ class DeepStitch(nn.Module):
                     col_B = min_indice % high_B
                     drow = row_B - row_A
                     dcol = col_A - col_B
-                    drow_T[batch_index, kp_index] = drow
-                    dcol_T[batch_index, kp_index] = dcol
-            out_drow = self.filterDrow(drow_T)
-            out_dcol = self.filterDcol(dcol_T)
-            out = torch.cat([out_drow, out_dcol], 1)
+                    # drow_T[batch_index, kp_index] = drow
+                    # dcol_T[batch_index, kp_index] = dcol
+                    offset[batch_index, kp_index, 0] = drow
+                    offset[batch_index, kp_index, 1] = dcol
+                    offset[batch_index, kp_index, 2] = min_value
+            offset = offset.view(batch_A, -1)
+            # out_drow = self.filterDrow(drow_T)
+            # out_dcol = self.filterDrow(dcol_T)
+            # out = torch.cat([out_drow, out_dcol], 1)
+            out = self.filter(offset)
+            print(offset.size())
             return out
 
 if __name__ == "__main__":

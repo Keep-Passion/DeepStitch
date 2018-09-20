@@ -10,7 +10,7 @@ from vgg_nmp_backbone import *
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 num_epochs = 10
-batch_size = 2
+batch_size = 1
 learning_rate = 0.0001
 admp_channel = 32
 isTrainFeature = False
